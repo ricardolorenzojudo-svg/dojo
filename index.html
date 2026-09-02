@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asistente del Dojo</title>
+<style>
+ body{background:#141414;color:#eee;font-family:Arial;
+ display:flex;align-items:center;justify-content:center;
+ height:100vh;margin:0}
+ .box{text-align:center;padding:20px}
+ h1{color:#7fb069;font-size:1.3rem}
+ #msg{margin-top:10px;color:#aaa}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>🥋 Conectando con el dojo...</h1>
+<div id="msg">Un momento, por favor.</div>
+</div>
+<script>
+fetch("url.json?v=" + Date.now(), { cache: "no-store" })
+  .then(function (r) { return r.json(); })
+  .then(function (d) {
+    if (d && d.url) {
+      window.location.replace(d.url + "/webhook/portal-judo");
+    } else {
+      document.getElementById("msg").textContent =
+        "El asistente no esta disponible ahora mismo.";
+    }
+  })
+  .catch(function () {
+    document.getElementById("msg").textContent =
+      "El asistente no esta disponible ahora mismo.";
+  });
+</script>
+</body>
+</html>
