@@ -24,6 +24,7 @@
     --radius-bubble: 18px;
   }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  [hidden]{ display:none !important; }
   html,body{ height:100%; }
   body{
     background:var(--bg);
@@ -96,7 +97,7 @@
   }
   .chip:active{ transform:scale(.97); }
   .chip:hover{ border-color:var(--accent); background:var(--surface-2); }
-  .chip:focus-visible, .example:focus-visible, #sendBtn:focus-visible, textarea:focus-visible, .retry-mini:focus-visible{
+  .chip:focus-visible, .example:focus-visible, #sendBtn:focus-visible, textarea:focus-visible, .retry-mini:focus-visible, .retry:focus-visible{
     outline:2px solid var(--accent); outline-offset:2px;
   }
 
@@ -184,7 +185,7 @@
   }
   .retry-mini{
     background:transparent; border:1px solid var(--danger); color:var(--danger);
-    border-radius:999px; padding:4px 12px; font-size:12px; font-weight:700; cursor:pointer;
+    border-radius:999px; padding:4px 12px; font-size:12px; font-weight:700; cursor:pointer; flex:none;
   }
 
   /* ============ COMPOSER ============ */
@@ -303,56 +304,64 @@ const $ = id => document.getElementById(id);
 const scrollArea = $('scrollArea'), welcome = $('welcome'), convo = $('conversation');
 const input = $('input'), sendBtn = $('sendBtn');
 const banner = $('banner'), bannerText = $('bannerText');
-let WEBHOOK_URL = null, sending = false, online = false;
+const isTouch = window.matchMedia('(hover: none)').matches;
+
+let WEBHOOK_URL = null, sending = false;
 
 const SESSION_ID = (crypto.randomUUID ? crypto.randomUUID() : 'dojo-' + Date.now());
 
-/* ---------- Estados de conexión ---------- */
-function setStatus(mode){
-  const dot = $('statusDot'), txt = $('statusText');
-  dot.className = 'status-dot';
-  if (mode === 'loading'){ dot.classList.add('warn'); txt.textContent = 'Conectando con el dojo…'; }
-  if (mode === 'online'){
-    online = true; txt.textContent = 'En línea';
-    input.disabled = false; hideBanner(); refreshSend();
-  }
-  if (mode === 'offline'){
-    online = false; dot.classList.add('off'); txt.textContent = 'Sin conexión';
-    input.disabled = true; sendBtn.disabled = true;
-    showBanner('⚠️ Sin conexión. Comprueba tu red.');
-  }
-  if (mode === 'down'){
-    online = false; dot.classList.add('off'); txt.textContent = 'Asistente no disponible';
-    input.disabled = true; sendBtn.disabled = true;
-    showBanner('El asistente no está disponible ahora mismo.');
-  }
-}
+/* ---------- Utilidades de estado ---------- */
+function setDot(cls){ $('statusDot').className = 'status-dot' + (cls ? ' ' + cls : ''); }
+function setStatusText(t){ $('statusText').textContent = t; }
 function showBanner(t){ bannerText.textContent = t; banner.hidden = false; }
 function hideBanner(){ banner.hidden = true; }
+function refreshSend(){ sendBtn.disabled = !WEBHOOK_URL || !input.value.trim(); }
 
-/* ---------- Arranque: resolver túnel de hoy ---------- */
+/* ---------- Arranque: resolver el túnel de hoy ---------- */
 async function bootstrap(){
-  setStatus('loading');
-  if (!navigator.onLine){ setStatus('offline'); return; }
+  setDot('warn'); setStatusText('Conectando con el dojo…'); hideBanner();
+  if (!navigator.onLine){ deviceOffline(); return; }
   try{
     const r = await fetch('url.json?v=' + Date.now(), { cache:'no-store' });
     const d = await r.json();
     if (d && d.url){
       WEBHOOK_URL = d.url.replace(/\/+$/, '') + '/webhook/portal-judo';
-      try{
-        const p = await fetch(WEBHOOK_URL, { method:'GET' });
-        setStatus(p.ok ? 'online' : 'down');
-      }catch(e){ setStatus('down'); }
-    } else { setStatus('down'); }
-  }catch(e){ setStatus('down'); }
+      input.disabled = false; refreshSend();   // el chat se habilita YA
+      pingTunnel().then(ok => {
+        if (ok){ setDot(''); setStatusText('En línea'); hideBanner(); }
+        else { setDot('off'); setStatusText('Asistente no disponible'); showBanner('El asistente no está disponible ahora mismo.'); }
+      });
+    } else { tunnelDown(); }
+  }catch(e){ tunnelDown(); }
 }
+
+async function pingTunnel(){
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 8000);
+  try{ const p = await fetch(WEBHOOK_URL, { method:'GET', signal:ctrl.signal }); return p.ok; }
+  catch(e){ return false; }
+  finally{ clearTimeout(t); }
+}
+
+function tunnelDown(){
+  WEBHOOK_URL = null;
+  setDot('off'); setStatusText('Asistente no disponible');
+  input.disabled = true; sendBtn.disabled = true;
+  showBanner('El asistente no está disponible ahora mismo.');
+}
+
+function deviceOffline(){
+  setDot('off'); setStatusText('Sin conexión');
+  input.disabled = true; sendBtn.disabled = true;
+  showBanner('⚠️ Sin conexión. Comprueba tu red.');
+}
+
 $('retryConn').addEventListener('click', bootstrap);
 window.addEventListener('online',  bootstrap);
-window.addEventListener('offline', () => setStatus('offline'));
+window.addEventListener('offline', deviceOffline);
 bootstrap();
 
 /* ---------- Composer ---------- */
-function refreshSend(){ sendBtn.disabled = !online || !input.value.trim(); }
 function autoresize(){ input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
 input.addEventListener('input', () => { refreshSend(); autoresize(); });
 input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(input.value); } });
@@ -403,7 +412,8 @@ function addError(retryText){
 
 async function send(text){
   text = (text || '').trim();
-  if (!text || sending || !online) return;
+  if (!text || sending) return;
+  if (!WEBHOOK_URL){ bootstrap(); return; }
   input.value = ''; autoresize(); refreshSend();
   addUser(text);
   ask(text);
@@ -421,7 +431,7 @@ async function ask(text){
     addError(text);
   }finally{
     sending = false;
-    input.focus({ preventScroll:true });
+    if (!isTouch) input.focus({ preventScroll:true });
   }
 }
 
