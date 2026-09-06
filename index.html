@@ -2,37 +2,474 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Asistente del Dojo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e0c">
+<meta name="description" content="Asistente virtual oficial del Dojo de Ricardo Lorenzo Judo. Técnicas, reglamento, entrenamiento, competición y fundamentos.">
+<title>Asistente virtual del Dojo · Ricardo Lorenzo Judo</title>
 <style>
- body{background:#141414;color:#eee;font-family:Arial;
- display:flex;align-items:center;justify-content:center;
- height:100vh;margin:0}
- .box{text-align:center;padding:20px}
- h1{color:#7fb069;font-size:1.3rem}
- #msg{margin-top:10px;color:#aaa}
+  /* ============ IDENTIDAD VISUAL ============ */
+  :root{
+    --bg:            #0a0e0c;
+    --bg-soft:       #0e1411;
+    --surface:       #131b17;
+    --surface-2:     #1a2420;
+    --line:          #24322b;
+    --text:          #eef4f0;
+    --muted:         #93a69c;
+    --accent:        #35d07f;
+    --accent-strong: #25b56b;
+    --accent-ink:    #052e1b;
+    --danger:        #ff6b6b;
+    --warn:          #ffc857;
+    --radius-bubble: 18px;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size:16px; line-height:1.55;
+    overscroll-behavior-y:none;
+  }
+  #app{ height:100dvh; display:flex; flex-direction:column; }
+
+  /* ============ CABECERA ============ */
+  .topbar{
+    background:rgba(14,20,17,.92);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+    padding:12px 16px 0;
+    padding-top:calc(12px + env(safe-area-inset-top));
+    position:relative; z-index:5;
+  }
+  .brand{ display:flex; align-items:center; gap:12px; padding-bottom:12px; }
+  .brand-emblem{
+    width:42px; height:42px; flex:none;
+    display:grid; place-items:center;
+    background:linear-gradient(145deg, var(--surface-2), var(--surface));
+    border:1px solid var(--line);
+    border-radius:12px;
+    font-size:22px;
+  }
+  .brand-text h1{ font-size:16px; font-weight:700; letter-spacing:.01em; }
+  .brand-text p{ font-size:12.5px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .status-dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); flex:none; box-shadow:0 0 6px var(--accent); }
+  .status-dot.off{ background:var(--danger); box-shadow:0 0 6px var(--danger); }
+  .status-dot.warn{ background:var(--warn); box-shadow:0 0 6px var(--warn); animation:pulse 1s infinite; }
+  @keyframes pulse{ 50%{ opacity:.4; } }
+  /* Franja de cinturones: tradición del judo */
+  .belt-strip{
+    height:3px; margin:0 -16px;
+    background:linear-gradient(90deg,
+      #f5f5f5 0 14%, #f7d21e 14% 28%, #f97316 28% 42%,
+      #22c55e 42% 57%, #3b82f6 57% 71%, #8b5a2b 71% 85%, #17181a 85% 100%);
+    opacity:.85;
+  }
+
+  /* ============ ZONA DE SCROLL ============ */
+  .chat-scroll{
+    flex:1; overflow-y:auto; overscroll-behavior:contain;
+    padding:20px 14px 12px;
+    scrollbar-width:thin; scrollbar-color:var(--line) transparent;
+  }
+  .inner{ max-width:760px; margin:0 auto; }
+
+  /* ============ PANTALLA INICIAL ============ */
+  .welcome{ display:flex; flex-direction:column; gap:22px; padding-top:6vh; animation:fadeIn .4s ease; }
+  .welcome-card h2{
+    font-size:clamp(22px, 5.4vw, 30px);
+    font-weight:800; letter-spacing:-.015em; line-height:1.2;
+  }
+  .welcome-card h2 .accent{ color:var(--accent); }
+  .welcome-card p{ color:var(--muted); margin-top:10px; font-size:15px; max-width:52ch; }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{
+    min-height:42px; padding:10px 16px;
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:999px; color:var(--text);
+    font-size:14px; font-weight:600; cursor:pointer;
+    transition:border-color .15s, background .15s, transform .1s;
+  }
+  .chip:active{ transform:scale(.97); }
+  .chip:hover{ border-color:var(--accent); background:var(--surface-2); }
+  .chip:focus-visible, .example:focus-visible, #sendBtn:focus-visible, textarea:focus-visible, .retry-mini:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  .examples{ display:flex; flex-direction:column; gap:8px; }
+  .examples h3{
+    font-size:12px; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:10px;
+  }
+  .example{
+    width:100%; text-align:left;
+    background:var(--surface); border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    border-radius:12px; padding:13px 16px;
+    color:var(--text); font-size:14.5px; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    transition:background .15s, border-color .15s;
+  }
+  .example:hover{ background:var(--surface-2); }
+  .example .go{ color:var(--accent); font-size:16px; flex:none; transition:transform .15s; }
+  .example:hover .go{ transform:translateX(3px); }
+
+  /* ============ CONVERSACIÓN ============ */
+  .conversation{ display:flex; flex-direction:column; gap:14px; }
+  .msg{ display:flex; align-items:flex-end; gap:8px; animation:msgIn .25s ease; }
+  .msg.user{ justify-content:flex-end; }
+  .avatar{
+    width:28px; height:28px; flex:none; border-radius:50%;
+    display:grid; place-items:center; font-size:14px;
+    background:var(--surface-2); border:1px solid var(--line);
+  }
+  .bubble{
+    max-width:min(85%, 560px);
+    padding:11px 15px;
+    border-radius:var(--radius-bubble);
+    font-size:15px; word-wrap:break-word; overflow-wrap:break-word;
+  }
+  .msg.user .bubble{
+    background:linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color:var(--accent-ink); font-weight:500;
+    border-bottom-right-radius:6px;
+  }
+  .msg.bot .bubble{
+    background:var(--surface); border:1px solid var(--line);
+    border-bottom-left-radius:6px;
+  }
+  .bubble p{ margin:0 0 8px; } .bubble p:last-child{ margin-bottom:0; }
+  .bubble h4{ margin:10px 0 6px; font-size:14px; color:var(--accent); letter-spacing:.02em; }
+  .bubble ul, .bubble ol{ margin:2px 0 8px; padding-left:20px; display:flex; flex-direction:column; gap:3px; }
+  .bubble strong{ font-weight:700; }
+  .msg.bot .bubble strong{ color:var(--accent); }
+  .bubble .tip{
+    border-left:3px solid var(--accent);
+    background:var(--surface-2);
+    padding:8px 12px; border-radius:8px; margin:8px 0;
+  }
+  .bubble.error{ border-color:rgba(255,107,107,.45); }
+  .bubble.error .err-title{ color:var(--danger); font-weight:700; display:flex; gap:6px; align-items:center; }
+  .retry{
+    margin-top:10px; min-height:38px; padding:8px 16px;
+    background:transparent; border:1px solid var(--danger);
+    color:var(--danger); border-radius:999px;
+    font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .retry:hover{ background:rgba(255,107,107,.12); }
+
+  /* Indicador de escritura */
+  .typing{ display:inline-flex; gap:5px; padding:4px 2px; }
+  .typing span{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--muted); animation:blink 1.2s infinite;
+  }
+  .typing span:nth-child(2){ animation-delay:.2s; }
+  .typing span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,60%,100%{ opacity:.25; transform:translateY(0);} 30%{ opacity:1; transform:translateY(-3px);} }
+  @keyframes msgIn{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+  @keyframes fadeIn{ from{ opacity:0;} to{ opacity:1;} }
+  @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+
+  /* ============ BANNER DE ESTADO ============ */
+  .offline-banner{
+    background:rgba(255,107,107,.12); border-bottom:1px solid rgba(255,107,107,.4);
+    color:var(--danger); text-align:center;
+    font-size:13px; font-weight:600; padding:8px 12px;
+    display:flex; gap:10px; align-items:center; justify-content:center;
+  }
+  .retry-mini{
+    background:transparent; border:1px solid var(--danger); color:var(--danger);
+    border-radius:999px; padding:4px 12px; font-size:12px; font-weight:700; cursor:pointer;
+  }
+
+  /* ============ COMPOSER ============ */
+  .composer{
+    background:var(--bg-soft);
+    border-top:1px solid var(--line);
+    padding:10px 14px;
+    padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  }
+  .composer .inner{ display:flex; flex-direction:column; gap:8px; }
+  .composer-row{ display:flex; align-items:flex-end; gap:10px; }
+  textarea{
+    flex:1; resize:none; border:1px solid var(--line);
+    background:var(--surface); color:var(--text);
+    border-radius:22px; padding:12px 18px;
+    font:inherit; font-size:15.5px; line-height:1.4;
+    max-height:120px; min-height:46px;
+  }
+  textarea::placeholder{ color:var(--muted); }
+  textarea:disabled{ opacity:.5; }
+  #sendBtn{
+    width:46px; height:46px; flex:none;
+    border:none; border-radius:50%;
+    background:var(--accent); color:var(--accent-ink);
+    display:grid; place-items:center; cursor:pointer;
+    transition:background .15s, transform .1s, opacity .15s;
+  }
+  #sendBtn:disabled{ background:var(--surface-2); color:var(--muted); cursor:not-allowed; }
+  #sendBtn:not(:disabled):active{ transform:scale(.93); }
+  #sendBtn svg{ width:20px; height:20px; }
+  .credit{
+    text-align:center; font-size:11px; color:var(--muted);
+    letter-spacing:.04em; opacity:.75;
+  }
+
+  @media (min-width:768px){
+    .chat-scroll{ padding:28px 24px 16px; }
+    .bubble{ max-width:70%; }
+    .welcome{ padding-top:9vh; }
+  }
 </style>
 </head>
 <body>
-<div class="box">
-<h1>🥋 Conectando con el dojo...</h1>
-<div id="msg">Un momento, por favor.</div>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-emblem" aria-hidden="true">🥋</div>
+      <div class="brand-text">
+        <h1>Asistente virtual del Dojo</h1>
+        <p><span class="status-dot warn" id="statusDot"></span> Sensei Ricardo Lorenzo · <span id="statusText">Conectando con el dojo…</span></p>
+      </div>
+    </div>
+    <div class="belt-strip" aria-hidden="true"></div>
+  </header>
+
+  <div class="offline-banner" id="banner" hidden>
+    <span id="bannerText"></span>
+    <button class="retry-mini" id="retryConn">Reintentar</button>
+  </div>
+
+  <main class="chat-scroll" id="scrollArea">
+    <div class="inner">
+
+      <!-- CONVERSACIÓN VACÍA / BIENVENIDA -->
+      <section class="welcome" id="welcome">
+        <div class="welcome-card">
+          <h2>¿En qué puedo ayudarte <span class="accent">con Judo</span>?</h2>
+          <p>Soy el asistente del Dojo de Ricardo Lorenzo. Puedo ayudarte con técnicas, entrenamiento, reglamento, competición y fundamentos.</p>
+        </div>
+
+        <div class="chips" role="group" aria-label="Temas rápidos">
+          <button class="chip" data-q="¿Qué técnicas de proyección incluye el temario?">🥋 Técnicas</button>
+          <button class="chip" data-q="¿Cuándo es ippon?">📖 Reglamento</button>
+          <button class="chip" data-q="¿Cómo preparo un randori?">💪 Entrenamiento</button>
+          <button class="chip" data-q="¿Qué diferencia hay entre waza-ari e ippon?">🏆 Competición</button>
+          <button class="chip" data-q="¿Qué es el kuzushi y por qué es importante?">🎓 Fundamentos</button>
+          <button class="chip" data-q="¿Qué es el koshiki no kata?">❓ Preguntas frecuentes</button>
+        </div>
+
+        <div class="examples">
+          <h3>Prueba preguntando…</h3>
+          <button class="example" data-q="¿Cómo se ejecuta O-soto-gari?"><span>¿Cómo se ejecuta O-soto-gari?</span><span class="go">→</span></button>
+          <button class="example" data-q="¿Cuándo es ippon?"><span>¿Cuándo es ippon?</span><span class="go">→</span></button>
+          <button class="example" data-q="¿Qué diferencia hay entre waza-ari e ippon?"><span>¿Qué diferencia hay entre waza-ari e ippon?</span><span class="go">→</span></button>
+          <button class="example" data-q="¿Cómo preparo un randori?"><span>¿Cómo preparo un randori?</span><span class="go">→</span></button>
+        </div>
+      </section>
+
+      <!-- CONVERSACIÓN ACTIVA -->
+      <section class="conversation" id="conversation" aria-live="polite"></section>
+
+    </div>
+  </main>
+
+  <footer class="composer">
+    <div class="inner">
+      <div class="composer-row">
+        <textarea id="input" rows="1" placeholder="Pregunta sobre Judo…" enterkeyhint="send" aria-label="Escribe tu pregunta sobre Judo" disabled></textarea>
+        <button id="sendBtn" disabled aria-label="Enviar pregunta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <p class="credit">Creado por Ricardo Lorenzo · Ricardo Lorenzo Judo</p>
+    </div>
+  </footer>
+
 </div>
+
 <script>
-fetch("url.json?v=" + Date.now(), { cache: "no-store" })
-  .then(function (r) { return r.json(); })
-  .then(function (d) {
-    if (d && d.url) {
-      window.location.replace(d.url + "/webhook/portal-judo");
-    } else {
-      document.getElementById("msg").textContent =
-        "El asistente no esta disponible ahora mismo.";
+/* ============================================================
+   CONEXIÓN: lee url.json (actualizado a diario por tu script)
+   y resuelve automáticamente el túnel de hoy. Sin edits manuales.
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const scrollArea = $('scrollArea'), welcome = $('welcome'), convo = $('conversation');
+const input = $('input'), sendBtn = $('sendBtn');
+const banner = $('banner'), bannerText = $('bannerText');
+let WEBHOOK_URL = null, sending = false, online = false;
+
+const SESSION_ID = (crypto.randomUUID ? crypto.randomUUID() : 'dojo-' + Date.now());
+
+/* ---------- Estados de conexión ---------- */
+function setStatus(mode){
+  const dot = $('statusDot'), txt = $('statusText');
+  dot.className = 'status-dot';
+  if (mode === 'loading'){ dot.classList.add('warn'); txt.textContent = 'Conectando con el dojo…'; }
+  if (mode === 'online'){
+    online = true; txt.textContent = 'En línea';
+    input.disabled = false; hideBanner(); refreshSend();
+  }
+  if (mode === 'offline'){
+    online = false; dot.classList.add('off'); txt.textContent = 'Sin conexión';
+    input.disabled = true; sendBtn.disabled = true;
+    showBanner('⚠️ Sin conexión. Comprueba tu red.');
+  }
+  if (mode === 'down'){
+    online = false; dot.classList.add('off'); txt.textContent = 'Asistente no disponible';
+    input.disabled = true; sendBtn.disabled = true;
+    showBanner('El asistente no está disponible ahora mismo.');
+  }
+}
+function showBanner(t){ bannerText.textContent = t; banner.hidden = false; }
+function hideBanner(){ banner.hidden = true; }
+
+/* ---------- Arranque: resolver túnel de hoy ---------- */
+async function bootstrap(){
+  setStatus('loading');
+  if (!navigator.onLine){ setStatus('offline'); return; }
+  try{
+    const r = await fetch('url.json?v=' + Date.now(), { cache:'no-store' });
+    const d = await r.json();
+    if (d && d.url){
+      WEBHOOK_URL = d.url.replace(/\/+$/, '') + '/webhook/portal-judo';
+      try{
+        const p = await fetch(WEBHOOK_URL, { method:'GET' });
+        setStatus(p.ok ? 'online' : 'down');
+      }catch(e){ setStatus('down'); }
+    } else { setStatus('down'); }
+  }catch(e){ setStatus('down'); }
+}
+$('retryConn').addEventListener('click', bootstrap);
+window.addEventListener('online',  bootstrap);
+window.addEventListener('offline', () => setStatus('offline'));
+bootstrap();
+
+/* ---------- Composer ---------- */
+function refreshSend(){ sendBtn.disabled = !online || !input.value.trim(); }
+function autoresize(){ input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+input.addEventListener('input', () => { refreshSend(); autoresize(); });
+input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(input.value); } });
+sendBtn.addEventListener('click', () => send(input.value));
+
+/* Chips y sugerencias inician conversación */
+document.querySelectorAll('.chip, .example').forEach(btn =>
+  btn.addEventListener('click', () => send(btn.dataset.q)));
+
+/* ---------- Flujo de mensajes ---------- */
+function scrollBottom(){ scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior:'smooth' }); }
+
+function addUser(text){
+  welcome.hidden = true;
+  const el = document.createElement('div');
+  el.className = 'msg user';
+  el.innerHTML = '<div class="bubble"></div>';
+  el.querySelector('.bubble').textContent = text;
+  convo.appendChild(el); scrollBottom();
+}
+
+function addTyping(){
+  const el = document.createElement('div');
+  el.className = 'msg bot';
+  el.innerHTML = '<div class="avatar">🥋</div><div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>';
+  convo.appendChild(el); scrollBottom();
+  return el;
+}
+
+function addBot(html){
+  const el = document.createElement('div');
+  el.className = 'msg bot';
+  el.innerHTML = '<div class="avatar">🥋</div><div class="bubble"></div>';
+  el.querySelector('.bubble').innerHTML = html;
+  convo.appendChild(el); scrollBottom();
+}
+
+function addError(retryText){
+  const el = document.createElement('div');
+  el.className = 'msg bot';
+  el.innerHTML = '<div class="avatar">🥋</div><div class="bubble error">' +
+    '<span class="err-title">⚠️ No se pudo generar la respuesta</span>' +
+    '<p style="margin-top:6px;color:var(--muted)">Puede ser un problema temporal del servidor del dojo.</p>' +
+    '<button class="retry">Reintentar</button></div>';
+  el.querySelector('.retry').addEventListener('click', () => { el.remove(); ask(retryText); });
+  convo.appendChild(el); scrollBottom();
+}
+
+async function send(text){
+  text = (text || '').trim();
+  if (!text || sending || !online) return;
+  input.value = ''; autoresize(); refreshSend();
+  addUser(text);
+  ask(text);
+}
+
+async function ask(text){
+  sending = true;
+  const typing = addTyping();
+  try{
+    const reply = await callWebhook(text);
+    typing.remove();
+    addBot(formatAnswer(reply));
+  }catch(err){
+    typing.remove();
+    addError(text);
+  }finally{
+    sending = false;
+    input.focus({ preventScroll:true });
+  }
+}
+
+/* ---------- Llamada al webhook del túnel de hoy ---------- */
+async function callWebhook(text){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 90000);
+  try{
+    const res = await fetch(WEBHOOK_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:text, chatInput:text, sessionId:SESSION_ID }),
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')){
+      const d = await res.json();
+      return d.output ?? d.response ?? d.text ?? d.message ?? d.reply ?? d.answer ?? JSON.stringify(d);
     }
-  })
-  .catch(function () {
-    document.getElementById("msg").textContent =
-      "El asistente no esta disponible ahora mismo.";
-  });
+    return await res.text();
+  } finally { clearTimeout(timer); }
+}
+
+/* ---------- Formato de respuestas ---------- */
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatAnswer(raw){
+  let text = escapeHtml(String(raw)).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const lines = text.split(/\r?\n/);
+  let html = '', inUl = false, inOl = false, m;
+  const close = () => { if (inUl){ html += '</ul>'; inUl = false; } if (inOl){ html += '</ol>'; inOl = false; } };
+  for (const line of lines){
+    const t = line.trim();
+    if (!t){ close(); continue; }
+    if ((m = t.match(/^#{1,4}\s+(.*)/))){ close(); html += '<h4>' + m[1] + '</h4>'; continue; }
+    if ((m = t.match(/^[-•]\s+(.*)/))){ if (!inUl){ close(); html += '<ul>'; inUl = true; } html += '<li>' + m[1] + '</li>'; continue; }
+    if ((m = t.match(/^\d+[.)]\s+(.*)/))){ if (!inOl){ close(); html += '<ol>'; inOl = true; } html += '<li>' + m[1] + '</li>'; continue; }
+    close();
+    html += /consejo del sensei/i.test(t) ? '<p class="tip">💡 ' + t + '</p>' : '<p>' + t + '</p>';
+  }
+  close();
+  return html;
+}
+
+/* Teclado móvil: mantener la conversación visible */
+if (window.visualViewport){
+  window.visualViewport.addEventListener('resize', scrollBottom);
+}
 </script>
 </body>
 </html>
