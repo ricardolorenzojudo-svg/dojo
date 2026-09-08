@@ -23,7 +23,7 @@ fetch("url.json?v=" + Date.now(), { cache: "no-store" })
   .then(function (r) { return r.json(); })
   .then(function (d) {
     if (d && d.url) {
-      window.location.replace(d.url + "/webhook/portal-judo");
+      window.location.replace(d.url);
     } else {
       document.getElementById("msg").textContent =
         "El asistente no esta disponible ahora mismo.";
